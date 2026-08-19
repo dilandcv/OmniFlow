@@ -1,0 +1,16 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    # TODO: volúmenes y healthcheck
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    # TODO: configuración de build y proxy a la API

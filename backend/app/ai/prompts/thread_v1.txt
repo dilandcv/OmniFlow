@@ -1,0 +1,4 @@
+Prompt v1 para generación de hilos de X/Twitter.
+
+Instrucciones: definir la estructura de tweets, hooks, llamados a acción y
+formato de salida esperado por el pipeline.

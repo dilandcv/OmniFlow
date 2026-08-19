@@ -1,0 +1,4 @@
+Prompt v1 para generación de artículos/blog.
+
+Instrucciones: definir estructura (título, secciones, SEO), tono y formato
+de salida esperado por el pipeline.

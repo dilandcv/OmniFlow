@@ -1,0 +1,10 @@
+# Dependencias del backend (FastAPI + SQLModel + APScheduler + IA)
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+sqlmodel
+apscheduler
+python-dotenv
+httpx
+# proveedor-ia  # TODO: definir cliente oficial de Claude/OpenAI
