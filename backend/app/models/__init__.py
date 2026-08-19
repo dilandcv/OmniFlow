@@ -1,6 +1,7 @@
 """Modelos SQLModel para persistencia y relaciones del dominio."""
 
 from app.models.channel import Channel
+from app.models.concept import ContentConcept
 from app.models.content import (
     APROBADO,
     BORRADOR,
@@ -21,6 +22,7 @@ __all__ = [
     "PUBLICADO",
     "TRANSICIONES_VARIANTE",
     "Channel",
+    "ContentConcept",
     "ContentVariant",
     "Idea",
     "IdeaCanal",

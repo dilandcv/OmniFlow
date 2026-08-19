@@ -1,6 +1,6 @@
 // Vista "Nueva idea": formulario de premisa + tono + canales. Al enviar crea
-// la idea (y sus variantes vía IA en el backend o mock) y navega a la vista
-// de variantes generadas.
+// la idea (el backend genera variantes solo para canales legacy) y navega a la
+// vista de conceptos, donde se generan las ideas de contenido por plataforma.
 import { useEffect, useState } from 'react'
 import { api, ApiError, TONOS, type Channel } from '../api'
 import { useApp } from '../state/AppContext'
@@ -54,7 +54,7 @@ export function NuevaIdea() {
     try {
       const idea = await api.crearIdea({ premisa: premisaLimpia, tono, canal_ids: canalIds })
       guardarIdea(idea)
-      navegar('variantes', idea.id)
+      navegar('conceptos', idea.id)
     } catch (e: unknown) {
       if (e instanceof ApiError) {
         setError(`No se pudo generar el contenido: ${e.message}. Intentá de nuevo.`)
@@ -70,7 +70,7 @@ export function NuevaIdea() {
     <div className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-bold tracking-tight">Nueva idea</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Convertí una premisa en variantes optimizadas para cada canal.
+        Convertí una premisa en ideas de contenido para cada plataforma social.
       </p>
 
       {errorCanales ? (
@@ -155,7 +155,7 @@ export function NuevaIdea() {
               disabled={enviando || canalesCargando}
               className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {enviando ? 'Generando…' : 'Generar variantes'}
+              {enviando ? 'Creando…' : 'Crear idea'}
             </button>
           </div>
         </form>

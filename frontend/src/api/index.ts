@@ -7,7 +7,13 @@ import { mock } from './mock'
 
 export { ApiError } from './client'
 export type {
+  AIConfigInput,
+  AIConnectionResult,
+  AIStatus,
+  ProveedorIA,
   Channel,
+  ContentConcept,
+  ContentConceptGenerationResponse,
   ContentVariant,
   CrearIdeaInput,
   EditarVarianteInput,

@@ -9,9 +9,21 @@
 //   GET    /programaciones?estado=
 //   POST   /programaciones                { variante_id, programado_para }
 //   DELETE /programaciones/{id}
+//   GET    /ai/status                      estado de config IA (nunca la key)
+//   POST   /ai/config                      { provider, api_key, model? } (en memoria)
+//   POST   /ai/test                        { provider, api_key, model? } (no guarda)
+//   DELETE /ai/config                      elimina la config en memoria
+//   POST   /ideas/{id}/concepts/generate   genera conceptos (estratega IA)
+//   GET    /ideas/{id}/concepts            lista conceptos de una idea
+//   POST   /concepts/{id}/select           selecciona un concepto
 import type {
+  AIConfigInput,
+  AIConnectionResult,
+  AIStatus,
   ApiClient,
   Channel,
+  ContentConcept,
+  ContentConceptGenerationResponse,
   ContentVariant,
   CrearIdeaInput,
   EditarVarianteInput,
@@ -103,5 +115,35 @@ export const client: ApiClient = {
 
   async cancelarProgramacion(id: number): Promise<ScheduledPost> {
     return request<ScheduledPost>(`/programaciones/${id}`, { method: 'DELETE' })
+  },
+
+  async getAIStatus(): Promise<AIStatus> {
+    return request<AIStatus>('/ai/status')
+  },
+
+  async configureAI(input: AIConfigInput): Promise<AIStatus> {
+    return request<AIStatus>('/ai/config', { method: 'POST', body: JSON.stringify(input) })
+  },
+
+  async testAIConnection(input: AIConfigInput): Promise<AIConnectionResult> {
+    return request<AIConnectionResult>('/ai/test', { method: 'POST', body: JSON.stringify(input) })
+  },
+
+  async clearAIConfiguration(): Promise<AIStatus> {
+    return request<AIStatus>('/ai/config', { method: 'DELETE' })
+  },
+
+  async generateContentConcepts(ideaId: number): Promise<ContentConceptGenerationResponse> {
+    return request<ContentConceptGenerationResponse>(`/ideas/${ideaId}/concepts/generate`, {
+      method: 'POST',
+    })
+  },
+
+  async getContentConcepts(ideaId: number): Promise<ContentConcept[]> {
+    return request<ContentConcept[]>(`/ideas/${ideaId}/concepts`)
+  },
+
+  async selectContentConcept(conceptId: number): Promise<ContentConcept> {
+    return request<ContentConcept>(`/concepts/${conceptId}/select`, { method: 'POST' })
   },
 }

@@ -1,7 +1,7 @@
 """Modelo SQLModel de Canal (red social disponible para publicar)."""
 
 from sqlalchemy import JSON, Column
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class Channel(SQLModel, table=True):
@@ -12,3 +12,5 @@ class Channel(SQLModel, table=True):
     slug: str = Field(unique=True, index=True)
     plataforma: str = Field(default="otro")
     config: dict | None = Field(default=None, sa_column=Column(JSON))
+
+    conceptos: list["ContentConcept"] = Relationship(back_populates="canal")

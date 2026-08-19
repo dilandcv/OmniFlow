@@ -3,8 +3,13 @@
 // gastar tokens de IA. Se persisten en localStorage para sobrevivir refrescos.
 // Para usar el backend real: VITE_USE_MOCK=false (ver src/api/config.ts).
 import type {
+  AIConfigInput,
+  AIConnectionResult,
+  AIStatus,
   ApiClient,
   Channel,
+  ContentConcept,
+  ContentConceptGenerationResponse,
   ContentVariant,
   CrearIdeaInput,
   EditarVarianteInput,
@@ -18,30 +23,61 @@ import { ApiError } from './client'
 const STORAGE_KEY = 'omniflow:mock:db'
 const LATENCIA_MS = 350
 
+// Plataformas sociales: su flujo pasa por ContentConcept (estratega), no por
+// variantes directas. Espejo de backend/app/ai/strategist.py.
+const SLUGS_SOCIALES = ['tiktok', 'instagram', 'facebook']
+
 const CANALES_SEMILLA: Channel[] = [
   { id: 1, nombre: 'X (Twitter)', slug: 'x', plataforma: 'hilo', config: null },
   { id: 2, nombre: 'LinkedIn', slug: 'linkedin', plataforma: 'articulo', config: null },
   { id: 3, nombre: 'Boletín', slug: 'boletin', plataforma: 'boletin', config: null },
   { id: 4, nombre: 'Blog', slug: 'blog', plataforma: 'articulo', config: null },
+  { id: 5, nombre: 'TikTok', slug: 'tiktok', plataforma: 'tiktok', config: null },
+  { id: 6, nombre: 'Instagram', slug: 'instagram', plataforma: 'instagram', config: null },
+  { id: 7, nombre: 'Facebook', slug: 'facebook', plataforma: 'facebook', config: null },
 ]
 
 interface MockDb {
   secuencia: number
   canales: Channel[]
   ideas: Idea[]
+  conceptos: ContentConcept[]
   programaciones: ScheduledPost[]
 }
 
 function seed(): MockDb {
-  return { secuencia: 100, canales: CANALES_SEMILLA, ideas: [], programaciones: [] }
+  return { secuencia: 100, canales: CANALES_SEMILLA, ideas: [], conceptos: [], programaciones: [] }
+}
+
+function asegurarCanalesSociales(parsed: MockDb): MockDb {
+  // Idempotente: agrega los canales sociales a bases mock preexistentes.
+  const existentes = new Set(parsed.canales.map((c) => c.slug))
+  let maxId = parsed.canales.reduce((m, c) => Math.max(m, c.id), 0)
+  for (const c of CANALES_SEMILLA) {
+    if (SLUGS_SOCIALES.includes(c.slug) && !existentes.has(c.slug)) {
+      maxId += 1
+      parsed.canales.push({ ...c, id: maxId })
+    }
+  }
+  return parsed
 }
 
 function cargarDb(): MockDb {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const parsed = JSON.parse(raw) as MockDb
-      if (parsed && Array.isArray(parsed.canales) && parsed.canales.length > 0) return parsed
+      const parsed = JSON.parse(raw) as Partial<MockDb>
+      if (parsed && Array.isArray(parsed.canales) && parsed.canales.length > 0) {
+        // Normaliza bases mock viejas (p. ej. sin el campo 'conceptos') para no
+        // romper con undefined al generar/listar conceptos.
+        return asegurarCanalesSociales({
+          secuencia: typeof parsed.secuencia === 'number' ? parsed.secuencia : 100,
+          canales: parsed.canales,
+          ideas: Array.isArray(parsed.ideas) ? parsed.ideas : [],
+          conceptos: Array.isArray(parsed.conceptos) ? parsed.conceptos : [],
+          programaciones: Array.isArray(parsed.programaciones) ? parsed.programaciones : [],
+        })
+      }
     }
   } catch {
     // storage no disponible: seguimos en memoria
@@ -58,6 +94,27 @@ function guardarDb(): void {
 }
 
 const db = cargarDb()
+
+// Estado de IA del mock: SOLO en memoria del módulo. Replica el backend real,
+// donde la API key nunca se persiste: al recargar la página vuelve a false.
+const DEFAULT_MODELOS_MOCK: Record<string, string> = {
+  gemini: 'gemini-2.5-flash',
+  anthropic: 'claude-3-5-sonnet-latest',
+  openai: 'gpt-4o-mini',
+}
+let mockAIStatus: AIStatus = { configured: false, provider: null, model: null }
+
+function validarConfigIA(input: AIConfigInput): { provider: string; api_key: string; model: string } {
+  const provider = (input.provider ?? '').trim().toLowerCase()
+  const api_key = (input.api_key ?? '').trim()
+  if (!provider) throw new ApiError('Elegí un proveedor de IA.', 400)
+  if (!DEFAULT_MODELOS_MOCK[provider]) {
+    throw new ApiError(`Proveedor desconocido: '${provider}'. Válidos: gemini, anthropic, openai.`, 400)
+  }
+  if (!api_key) throw new ApiError('La API key es obligatoria.', 400)
+  const model = (input.model ?? '').trim() || DEFAULT_MODELOS_MOCK[provider]
+  return { provider, api_key, model }
+}
 
 function esperar(ms = LATENCIA_MS): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -85,6 +142,53 @@ function contenidoMock(premisa: string, canal: Channel): string {
   }
 }
 
+// Plantillas de conceptos por plataforma para el mock (variedad de ángulo y
+// formato, como pediría el prompt real de estrategia).
+const PLANTILLAS_CONCEPTO: Record<string, { formato: string; angulo: string }[]> = {
+  tiktok: [
+    { formato: 'short_video', angulo: '3 cosas que ya cambiaron' },
+    { formato: 'tutorial', angulo: 'Paso a paso para empezar hoy' },
+    { formato: 'storytelling', angulo: 'La historia real detrás de esto' },
+    { formato: 'listicle', angulo: 'Los 5 errores más comunes' },
+    { formato: 'comparison', angulo: 'Antes vs. después' },
+  ],
+  instagram: [
+    { formato: 'carousel', angulo: '5 claves en diapositivas' },
+    { formato: 'reel', angulo: 'Lo que nadie te cuenta' },
+    { formato: 'post', angulo: 'Reflexión con pregunta abierta' },
+    { formato: 'story', angulo: 'Encuesta rápida para la audiencia' },
+    { formato: 'carousel', angulo: 'Mitos vs. realidad' },
+  ],
+  facebook: [
+    { formato: 'discussion', angulo: 'Debate: ¿a favor o en contra?' },
+    { formato: 'post', angulo: 'Tip educativo para guardar' },
+    { formato: 'short_video', angulo: 'Explicación en 1 minuto' },
+    { formato: 'story', angulo: 'Dato curioso del día' },
+    { formato: 'discussion', angulo: 'Compartí tu experiencia' },
+  ],
+}
+
+function conceptosMock(premisa: string, canal: Channel): ContentConcept[] {
+  const plantillas = PLANTILLAS_CONCEPTO[canal.slug] ?? PLANTILLAS_CONCEPTO.tiktok
+  const ahora = new Date().toISOString()
+  return plantillas.map((p, i) => ({
+    id: proximoId(),
+    idea_id: -1, // se rellena en generateContentConcepts
+    canal_id: canal.id,
+    title: `${canal.nombre}: ${p.angulo}`,
+    description: `Propuesta de contenido "${p.angulo}" a partir de: "${premisa}".`,
+    format: p.formato,
+    hook: `¿Sabías esto sobre ${premisa.toLowerCase()}?`,
+    objective: i % 2 === 0 ? 'education' : 'engagement',
+    target_audience: 'creadores y profesionales',
+    call_to_action: 'Guardá este contenido para volver a verlo.',
+    estimated_duration: p.formato === 'short_video' || p.formato === 'reel' ? 45 : null,
+    rationale: `El ángulo "${p.angulo}" con formato ${p.formato} encaja con la plataforma y el tono pedido.`,
+    seleccionado: false,
+    fecha_creacion: ahora,
+  }))
+}
+
 export const mock: ApiClient = {
   async listarCanales(): Promise<Channel[]> {
     await esperar()
@@ -106,13 +210,16 @@ export const mock: ApiClient = {
 
     const ahora = new Date().toISOString()
     const id = proximoId()
+    // Las plataformas sociales no generan variantes directas: su flujo pasa por
+    // ContentConcept (ver generateContentConcepts).
+    const canalesLegacy = canales.filter((c) => !SLUGS_SOCIALES.includes(c.slug))
     const idea: Idea = {
       id,
       premisa: input.premisa.trim(),
       tono: input.tono,
       fecha_creacion: ahora,
       canales: copia(canales),
-      variantes: canales.map((canal) => ({
+      variantes: canalesLegacy.map((canal) => ({
         id: proximoId(),
         idea_id: id,
         canal_id: canal.id,
@@ -231,5 +338,70 @@ export const mock: ApiClient = {
     }
     guardarDb()
     return copia(post)
+  },
+
+  async getAIStatus(): Promise<AIStatus> {
+    await esperar(150)
+    return copia(mockAIStatus)
+  },
+
+  async configureAI(input: AIConfigInput): Promise<AIStatus> {
+    await esperar()
+    const { provider, model } = validarConfigIA(input)
+    // La API key NO se retiene ni siquiera en el mock: se consume y se descarta.
+    mockAIStatus = { configured: true, provider, model }
+    return copia(mockAIStatus)
+  },
+
+  async testAIConnection(input: AIConfigInput): Promise<AIConnectionResult> {
+    await esperar(700)
+    const { provider, model } = validarConfigIA(input)
+    return { connected: true, provider, model, message: `Conexión correcta con '${provider}' (modelo ${model}).` }
+  },
+
+  async clearAIConfiguration(): Promise<AIStatus> {
+    await esperar()
+    mockAIStatus = { configured: false, provider: null, model: null }
+    return copia(mockAIStatus)
+  },
+
+  async generateContentConcepts(ideaId: number): Promise<ContentConceptGenerationResponse> {
+    await esperar(900)
+    const idea = db.ideas.find((i) => i.id === ideaId)
+    if (!idea) throw new ApiError('La idea no existe.', 404)
+    const sociales = idea.canales.filter((c) => SLUGS_SOCIALES.includes(c.slug))
+    if (sociales.length === 0) {
+      throw new ApiError('La idea no tiene canales de plataformas sociales seleccionados.', 400)
+    }
+    const nuevos: ContentConcept[] = []
+    for (const canal of sociales) {
+      for (const c of conceptosMock(idea.premisa, canal)) {
+        nuevos.push({ ...c, idea_id: ideaId })
+      }
+    }
+    db.conceptos.push(...copia(nuevos))
+    guardarDb()
+    return { concepts: copia(nuevos) }
+  },
+
+  async getContentConcepts(ideaId: number): Promise<ContentConcept[]> {
+    await esperar(150)
+    if (!db.ideas.some((i) => i.id === ideaId)) throw new ApiError('La idea no existe.', 404)
+    return copia(
+      db.conceptos
+        .filter((c) => c.idea_id === ideaId)
+        .sort((a, b) => a.canal_id - b.canal_id || a.id - b.id),
+    )
+  },
+
+  async selectContentConcept(conceptId: number): Promise<ContentConcept> {
+    await esperar()
+    const concepto = db.conceptos.find((c) => c.id === conceptId)
+    if (!concepto) throw new ApiError('El concepto no existe.', 404)
+    for (const c of db.conceptos) {
+      if (c.idea_id === concepto.idea_id) c.seleccionado = c.id === conceptId
+    }
+    guardarDb()
+    return copia(concepto)
   },
 }

@@ -143,17 +143,20 @@ def _extraer_variante(datos: dict[str, Any], formato_esperado: str) -> tuple[str
     return contenido.strip(), formato or formato_esperado
 
 
-def generar_variantes(idea: Idea, cliente: Any = None) -> list[ContentVariant]:
+def generar_variantes(idea: Idea, cliente: Any = None, canales: list | None = None) -> list[ContentVariant]:
     """Genera una ContentVariant en estado 'borrador' por cada canal de la idea.
 
     - ``cliente`` es inyectable (para pruebas): debe exponer
       ``complete(system: str, prompt: str) -> str``.
+    - ``canales`` opcional: subconjunto de canales sobre el que generar (por
+      defecto todos los ``idea.canales``). Útil para excluir plataformas que
+      ahora siguen el flujo de ContentConcept.
     - Si algo falla lanza ``GeneracionError``, ``IAFormatError`` u otro
       ``IAClientError``; el backend puede capturarlas y convertirlas en HTTP
       (503 si cae el proveedor, 400/422 si la respuesta es inválida).
     """
     proveedor = cliente or get_provider()
-    canales = getattr(idea, "canales", None) or []
+    canales = canales if canales is not None else (getattr(idea, "canales", None) or [])
     if not canales:
         raise GeneracionError("La idea no tiene canales elegidos; no se puede generar contenido.")
 

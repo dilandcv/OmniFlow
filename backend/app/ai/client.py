@@ -1,8 +1,13 @@
-"""Cliente HTTP para proveedores de IA externos (Anthropic / OpenAI).
+"""Cliente HTTP para proveedores de IA externos (Anthropic / OpenAI / Gemini).
 
 Maneja: timeout, reintento simple ante fallos transitorios y validación de que
-la respuesta tenga el formato esperado. No inventa claves: se leen de variables
-de entorno (``AI_PROVIDER`` y ``AI_API_KEY``; ver ``backend/.env.example``).
+la respuesta tenga el formato esperado.
+
+Modos de configuración:
+- Variables de entorno (``AI_PROVIDER`` y ``AI_API_KEY``; ver
+  ``backend/.env.example``), usadas como fallback.
+- Configuración en memoria (``app.ai.runtime``), setada por el usuario desde
+  la pantalla "Configuración de IA". La API key NO se persiste nunca.
 
 COMPATIBILIDAD:
 ``app/services/content_service.py`` importa ``generar_variantes`` desde este
@@ -64,12 +69,15 @@ class BaseIAClient:
         timeout: float = 60.0,
         max_retries: int = 2,
         max_tokens: int = 1200,
+        transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
         self.max_retries = max_retries
         self.max_tokens = max_tokens
+        # Transport inyectable para pruebas (httpx.MockTransport). None = real.
+        self.transport = transport
 
     # --- hooks por proveedor -------------------------------------------
     def _url(self) -> str:
@@ -96,7 +104,7 @@ class BaseIAClient:
         ultimo_error: IAClientError | None = None
         for intento in range(self.max_retries + 1):
             try:
-                with httpx.Client(timeout=self.timeout) as cliente:
+                with httpx.Client(timeout=self.timeout, transport=self.transport) as cliente:
                     resp = cliente.post(url, headers=headers, json=body)
             except httpx.TimeoutException as exc:  # noqa: PERF203
                 ultimo_error = IATimeoutError(
@@ -217,6 +225,44 @@ class OpenAIClient(BaseIAClient):
             return ""
 
 
+class GeminiClient(BaseIAClient):
+    """Cliente para la API generateContent de Google Gemini.
+
+    La API key se envía como query param ``?key=`` (estilo de Google) y el
+    sistema/prompt se combinan en un único mensaje de usuario porque el endpoint
+    usado no separa roles en los mismos términos que Anthropic/OpenAI.
+    """
+
+    provider_name = "gemini"
+
+    def _url(self) -> str:
+        return f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+
+    def _headers(self) -> dict[str, str]:
+        # La clave viaja en el header x-goog-api-key (evita la URL con ?key=,
+        # que podría quedar en logs de proxies).
+        return {
+            "content-type": "application/json",
+            "x-goog-api-key": self.api_key,
+        }
+
+    def _payload(self, system: str, prompt: str, max_tokens: int) -> dict:
+        return {
+            "contents": [{"parts": [{"text": f"{system}\n\n{prompt}"}]}],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": 0.7,
+            },
+        }
+
+    def _extraer_texto(self, json_resp: Mapping) -> str:
+        try:
+            partes = json_resp["candidates"][0]["content"]["parts"] or []
+            return "".join(p.get("text", "") for p in partes if isinstance(p, dict))
+        except (KeyError, TypeError, AttributeError, IndexError):
+            return ""
+
+
 def __getattr__(name: str):  # pragma: no cover - compat con content_service
     """Re-export perezoso de ``generar_variantes`` desde app.ai.generator (PEP 562)."""
     if name == "generar_variantes":
@@ -236,6 +282,7 @@ __all__ = [
     "BaseIAClient",
     "AnthropicClient",
     "OpenAIClient",
+    "GeminiClient",
     "IAClientError",
     "IAConfigError",
     "IATimeoutError",

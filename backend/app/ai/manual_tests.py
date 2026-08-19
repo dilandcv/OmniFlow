@@ -14,8 +14,15 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from app.ai.client import IAFormatError, IATimeoutError
+from app.ai.client import (
+    GeminiClient,
+    IAConfigError,
+    IAFormatError,
+    IAHttpError,
+    IATimeoutError,
+)
 from app.ai.generator import GeneracionError, _extraer_variante, _parsear_json, generar_variantes
+from app.ai.provider import construir_cliente, get_provider, reset_provider
 from app.ai.prompts import cargar_prompt
 from app.models.channel import Channel
 from app.models.content import BORRADOR
@@ -205,6 +212,116 @@ def test_08_real_proveedor_si_hay_key() -> None:
         raise
 
 
+def test_09_hooks_gemini() -> None:
+    print("[09] GeminiClient: URL, headers, payload y extracción de texto...")
+
+    cliente = GeminiClient(api_key="clave-secreta-de-prueba", model="gemini-2.5-flash")
+    url = cliente._url()
+    assert "models/gemini-2.5-flash:generateContent" in url
+    assert "clave-secreta-de-prueba" not in url, "la key no debe ir en la URL"
+
+    headers = cliente._headers()
+    assert headers.get("x-goog-api-key") == "clave-secreta-de-prueba"
+    assert headers.get("x-goog-api-key") is not None
+
+    payload = cliente._payload("sistema", "prompt", 400)
+    assert payload["contents"][0]["parts"][0]["text"] == "sistema\n\nprompt"
+    assert payload["generationConfig"]["maxOutputTokens"] == 400
+
+    resp = {
+        "candidates": [{"content": {"parts": [{"text": "hola "}, {"text": "mundo"}]}}],
+    }
+    assert cliente._extraer_texto(resp) == "hola mundo"
+    assert cliente._extraer_texto({"candidates": []}) == ""
+    assert cliente._extraer_texto({}) == ""
+    print("    OK")
+
+
+def test_10_gemini_complete_con_mocktransport() -> None:
+    print("[10] GeminiClient.complete contra httpx.MockTransport (HTTP real simulado)...")
+    import httpx
+
+    respuestas: list[httpx.Response] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert request.headers["x-goog-api-key"] == "clave-secreta-de-prueba"
+        assert body["contents"][0]["parts"][0]["text"].startswith("Sos")
+        return respuestas.pop(0)
+
+    servicios = {
+        "ok": httpx.Response(
+            200,
+            json={
+                "candidates": [{"content": {"parts": [{"text": '{"contenido": "texto valido largo"}'}]}}],
+            },
+        ),
+        "noauth": httpx.Response(401, json={"error": {"message": "API key no válida"}}),
+    }
+
+    cliente = GeminiClient(
+        api_key="clave-secreta-de-prueba",
+        model="gemini-2.5-flash",
+        max_retries=0,
+        transport=httpx.MockTransport(handler),
+    )
+    respuestas[:] = [servicios["ok"]]
+    texto = cliente.complete("Sos un asistente.", "prompt")
+    assert "contenido" in texto
+
+    respuestas[:] = [servicios["noauth"]]
+    try:
+        cliente.complete("Sos un asistente.", "prompt")
+        raise AssertionError("debió lanzar IAHttpError con status 401")
+    except IAHttpError as exc:
+        assert exc.status == 401
+    print("    OK")
+
+
+def test_11_fabrica_con_config_runtime() -> None:
+    print("[11] Fábrica: config runtime -> GeminiClient activo; al eliminar, 'not configured'...")
+    import os
+
+    from app.ai.runtime import clear_runtime_config, get_runtime_config, set_runtime_config
+
+    set_runtime_config("gemini", "clave-runtime-de-prueba", "gemini-2.5-flash")
+    reset_provider()
+    cliente = get_provider()
+    assert isinstance(cliente, GeminiClient), "con config runtime debe usarse GeminiClient"
+    assert cliente.model == "gemini-2.5-flash"
+    assert cliente.api_key == "clave-runtime-de-prueba"
+
+    assert get_runtime_config() is not None
+    clear_runtime_config()
+    reset_provider()
+    assert get_runtime_config() is None
+
+    from app.core.config import settings
+
+    tiene_key = bool(os.getenv("AI_API_KEY")) or bool(settings.ai_api_key)
+    if not tiene_key:
+        try:
+            get_provider()
+            raise AssertionError("sin proveedor configurado debió lanzar IAConfigError")
+        except IAConfigError as exc:
+            assert "AI provider is not configured" in str(exc)
+    else:
+        print("    (con AI_API_KEY en el entorno; se omite la verificación 'not configured')")
+
+    # construir_cliente con valores mal formados -> IAConfigError.
+    try:
+        construir_cliente("gemini", "", None)
+        raise AssertionError("debió lanzar IAConfigError sin API key")
+    except IAConfigError:
+        pass
+    try:
+        construir_cliente("noexiste", "clave", None)
+        raise AssertionError("debió lanzar IAConfigError con proveedor desconocido")
+    except IAConfigError:
+        pass
+    print("    OK")
+
+
 if __name__ == "__main__":
     print(f"Pruebas manuales del pipeline de IA — {datetime.now(timezone.utc).isoformat()}\n")
     test_01_prompts_cargables()
@@ -215,4 +332,7 @@ if __name__ == "__main__":
     test_06_generar_timeout()
     test_07_sin_canales()
     test_08_real_proveedor_si_hay_key()
+    test_09_hooks_gemini()
+    test_10_gemini_complete_con_mocktransport()
+    test_11_fabrica_con_config_runtime()
     print("\nTODAS LAS PRUEBAS MANUALES PASARON ✔")

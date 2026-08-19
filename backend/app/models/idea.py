@@ -24,3 +24,4 @@ class Idea(SQLModel, table=True):
 
     canales: list[Channel] = Relationship(link_model=IdeaCanal)
     variantes: list["ContentVariant"] = Relationship(back_populates="idea")
+    conceptos: list["ContentConcept"] = Relationship(back_populates="idea")

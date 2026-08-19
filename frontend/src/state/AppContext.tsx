@@ -1,6 +1,6 @@
-// Estado ligero de la app (sin librerías externas): navegación entre vistas y
-// catálogo de ideas conocidas, persistido en localStorage como caché para
-// sobrevivir refrescos (en modo mock es la fuente de datos de sesión).
+// Estado ligero de la app (sin librerías externas): navegación entre vistas,
+// catálogo de ideas conocidas (caché en localStorage) y estado de configuración
+// de IA. La API key NUNCA vive en este estado: solo {configured, provider, model}.
 import {
   createContext,
   useCallback,
@@ -10,9 +10,12 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Idea } from '../api/types'
+import { api } from '../api'
+import type { AIStatus, Idea } from '../api'
 
-export type Vista = 'idea' | 'variantes' | 'programacion'
+export type Vista = 'idea' | 'conceptos' | 'variantes' | 'programacion' | 'ai'
+
+const AI_STATUS_INICIAL: AIStatus = { configured: false, provider: null, model: null }
 
 interface AppContextValue {
   vista: Vista
@@ -21,6 +24,8 @@ interface AppContextValue {
   ideas: Idea[]
   guardarIdea: (idea: Idea) => void
   actualizarVariante: (ideaId: number, variante: Idea['variantes'][number]) => void
+  aiStatus: AIStatus
+  actualizarAIStatus: (s: AIStatus) => void
 }
 
 const KEY = 'omniflow:ideas'
@@ -44,6 +49,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [vista, setVista] = useState<Vista>('idea')
   const [ideaActualId, setIdeaActualId] = useState<number | null>(null)
   const [ideas, setIdeas] = useState<Idea[]>(cargarIdeas)
+  const [aiStatus, setAiStatus] = useState<AIStatus>(AI_STATUS_INICIAL)
 
   useEffect(() => {
     try {
@@ -52,6 +58,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // storage no disponible: seguimos en memoria
     }
   }, [ideas])
+
+  // Refresca el estado de IA al montar: si el backend se reinició, la config
+  // en memoria se perdió y el estado vuelve a {configured: false}.
+  useEffect(() => {
+    let activo = true
+    api
+      .getAIStatus()
+      .then((s) => {
+        if (activo) setAiStatus(s)
+      })
+      .catch(() => {
+        // sin backend: conservamos el estado inicial (no es bloqueante)
+      })
+    return () => {
+      activo = false
+    }
+  }, [])
 
   const navegar = useCallback((v: Vista, ideaId?: number | null) => {
     setVista(v)
@@ -81,9 +104,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  const actualizarAIStatus = useCallback((s: AIStatus) => {
+    setAiStatus(s)
+  }, [])
+
   const value = useMemo(
-    () => ({ vista, ideaActualId, navegar, ideas, guardarIdea, actualizarVariante }),
-    [vista, ideaActualId, navegar, ideas, guardarIdea, actualizarVariante],
+    () => ({
+      vista,
+      ideaActualId,
+      navegar,
+      ideas,
+      guardarIdea,
+      actualizarVariante,
+      aiStatus,
+      actualizarAIStatus,
+    }),
+    [vista, ideaActualId, navegar, ideas, guardarIdea, actualizarVariante, aiStatus, actualizarAIStatus],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

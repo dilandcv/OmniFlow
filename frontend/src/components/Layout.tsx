@@ -4,14 +4,16 @@ import type { ReactNode } from 'react'
 import { useApp } from '../state/AppContext'
 
 interface NavItem {
-  clave: 'idea' | 'variantes' | 'programacion'
+  clave: 'idea' | 'conceptos' | 'variantes' | 'programacion' | 'ai'
   etiqueta: string
 }
 
 const NAV: NavItem[] = [
   { clave: 'idea', etiqueta: 'Nueva idea' },
+  { clave: 'conceptos', etiqueta: 'Conceptos' },
   { clave: 'variantes', etiqueta: 'Variantes' },
   { clave: 'programacion', etiqueta: 'Programación' },
+  { clave: 'ai', etiqueta: 'Configuración de IA' },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -35,7 +37,12 @@ export function Layout({ children }: { children: ReactNode }) {
                 <button
                   key={item.clave}
                   type="button"
-                  onClick={() => navegar(item.clave, item.clave === 'variantes' ? ideaActualId : null)}
+                  onClick={() =>
+                    navegar(
+                      item.clave,
+                      item.clave === 'variantes' || item.clave === 'conceptos' ? ideaActualId : null,
+                    )
+                  }
                   className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                     activo ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'
                   }`}

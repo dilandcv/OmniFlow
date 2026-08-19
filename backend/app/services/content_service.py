@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
-from app.ai.client import generar_variantes
+from app.ai.client import IAClientError, IAConfigError, generar_variantes
+from app.ai.strategist import es_plataforma_social
 from app.models.channel import Channel
 from app.models.content import BORRADOR, TRANSICIONES_VARIANTE, ContentVariant
 from app.models.idea import Idea
@@ -21,7 +22,11 @@ def _obtener_variante(session: Session, variante_id: int) -> ContentVariant:
 
 
 def crear_idea_con_variantes(session: Session, data: IdeaCreate) -> Idea:
-    """Crea la idea, la vincula a los canales elegidos y genera sus variantes (stub IA)."""
+    """Crea la idea, la vincula a los canales elegidos y genera sus variantes (IA).
+
+    Los canales de plataformas sociales (TikTok/Instagram/Facebook) NO generan
+    variantes aquí: su flujo pasa por ContentConcept (ver /api/ideas/{id}/concepts/generate).
+    """
     if not data.canal_ids:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Selecciona al menos un canal.")
 
@@ -37,8 +42,21 @@ def crear_idea_con_variantes(session: Session, data: IdeaCreate) -> Idea:
     session.commit()
     session.refresh(idea)
 
-    for variante in generar_variantes(idea):
-        session.add(variante)
+    canales_legacy = [c for c in canales if not es_plataforma_social(c)]
+    try:
+        if canales_legacy:
+            for variante in generar_variantes(idea, canales=canales_legacy):
+                session.add(variante)
+    except IAConfigError as exc:
+        # Sin proveedor configurado (ni runtime ni entorno) -> 503 legible.
+        session.delete(idea)
+        session.commit()
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except IAClientError as exc:
+        session.delete(idea)
+        session.commit()
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
     session.commit()
     session.refresh(idea)
 

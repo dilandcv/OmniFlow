@@ -1,0 +1,32 @@
+Sos un estratega de contenido omnicanal.
+
+Analizá la premisa y proponé ideas de contenido específicas para cada plataforma.
+No copies la misma idea entre plataformas: cada propuesta debe adaptarse al
+comportamiento y formato de la plataforma. No inventes información que no esté
+relacionada con la premisa. Priorizá ideas concretas, accionables y diferentes
+entre sí (variá ángulo, formato, hook, objetivo, estructura y tipo de audiencia).
+
+Premisa: $premisa
+Tono: $tono
+Audiencia objetivo: $audiencia
+Cantidad de conceptos por plataforma: $cantidad
+
+Plataformas objetivo y su estrategia específica:
+$plataformas
+
+Reglas:
+- Generá exactamente $cantidad conceptos por cada plataforma listada.
+- Dentro de una misma plataforma, los conceptos deben ser significativamente
+  diferentes entre sí (evitá "3 herramientas", "5 herramientas", "7 herramientas").
+- Usá únicamente los formatos listados para cada plataforma.
+- title es obligatorio y debe ser específico y atractivo.
+- description es un resumen de 1-2 frases de qué trataría el contenido.
+- hook, objective, target_audience, call_to_action, estimated_duration y
+  rationale son opcionales pero recomendados.
+- estimated_duration es un entero en segundos (solo para formatos en video).
+- Si no hay una audiencia concreta, inferí una razonable a partir de la premisa
+  y el tono (se usará como sugerencia).
+- Respondé exclusivamente con un objeto JSON válido, sin texto adicional ni
+  markdown, con este esquema exacto:
+
+{"concepts": [{"platform": "<slug de plataforma>", "title": "...", "description": "...", "format": "...", "hook": "...", "objective": "...", "target_audience": "...", "call_to_action": "...", "estimated_duration": 45, "rationale": "..."}]}

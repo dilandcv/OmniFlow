@@ -19,6 +19,7 @@ from string import Template
 from app.core.config import settings
 
 PROMPT_DIR = Path(__file__).parent
+STRATEGY_DIR = PROMPT_DIR / "strategy"
 
 # formato -> archivo de prompt (la versión se sustituye en runtime).
 FORMATOS_PROMPT: dict[str, str] = {
@@ -60,4 +61,19 @@ def cargar_prompt(
     return plantilla.substitute(premisa=premisa, tono=tono, canal=canal)
 
 
-__all__ = ["cargar_prompt", "FORMATOS_PROMPT", "PROMPT_DIR"]
+def cargar_prompt_estrategia(version: str | None = None) -> str:
+    """Carga la plantilla del prompt de estrategia de conceptos (content_concepts).
+
+    Devuelve la plantilla sin sustituir; los placeholders ($premisa, $tono,
+    $audiencia, $cantidad, $plataformas) los reemplaza el estratega.
+    """
+    ver = (version or "1").strip()
+    archivo = STRATEGY_DIR / f"content_concepts_v{ver}.txt"
+    if not archivo.exists():
+        raise FileNotFoundError(
+            f"No existe el prompt de estrategia '{archivo.name}' (versión '{ver}')."
+        )
+    return archivo.read_text(encoding="utf-8")
+
+
+__all__ = ["cargar_prompt", "cargar_prompt_estrategia", "FORMATOS_PROMPT", "PROMPT_DIR", "STRATEGY_DIR"]

@@ -19,7 +19,7 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 @router.post("/ideas", response_model=IdeaOut, status_code=status.HTTP_201_CREATED)
 def crear_idea(data: IdeaCreate, session: SessionDep) -> Idea:
-    """Crea una idea con sus canales elegidos y genera las variantes (stub IA)."""
+    """Crea una idea con sus canales elegidos y genera las variantes (IA)."""
     return content_service.crear_idea_con_variantes(session, data)
 
 

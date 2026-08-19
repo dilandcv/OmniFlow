@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import channels, content, schedule
+from app.api import ai, channels, concepts, content, schedule
 from app.core.config import settings
 from app.core.db import init_db
 
@@ -31,6 +31,8 @@ app.add_middleware(
 app.include_router(content.router)
 app.include_router(channels.router)
 app.include_router(schedule.router)
+app.include_router(ai.router)
+app.include_router(concepts.router)
 
 
 @app.get("/health")

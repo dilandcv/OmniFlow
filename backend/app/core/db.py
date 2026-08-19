@@ -26,9 +26,30 @@ def init_db() -> None:
                     Channel(nombre="LinkedIn", slug="linkedin", plataforma="articulo"),
                     Channel(nombre="Boletín", slug="boletin", plataforma="boletin"),
                     Channel(nombre="Blog", slug="blog", plataforma="articulo"),
+                    Channel(nombre="TikTok", slug="tiktok", plataforma="tiktok"),
+                    Channel(nombre="Instagram", slug="instagram", plataforma="instagram"),
+                    Channel(nombre="Facebook", slug="facebook", plataforma="facebook"),
                 ]
             )
             session.commit()
+        else:
+            _asegurar_canales_sociales(session)
+
+
+def _asegurar_canales_sociales(session: Session) -> None:
+    """Agrega los canales sociales (idempotente) a bases de datos ya existentes."""
+    from app.models.channel import Channel
+
+    sociales = [
+        Channel(nombre="TikTok", slug="tiktok", plataforma="tiktok"),
+        Channel(nombre="Instagram", slug="instagram", plataforma="instagram"),
+        Channel(nombre="Facebook", slug="facebook", plataforma="facebook"),
+    ]
+    existentes = {c.slug for c in session.exec(select(Channel)).all()}
+    nuevos = [c for c in sociales if c.slug not in existentes]
+    if nuevos:
+        session.add_all(nuevos)
+        session.commit()
 
 
 def get_session() -> Iterator[Session]:
