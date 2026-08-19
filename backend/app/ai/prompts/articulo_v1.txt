@@ -1,0 +1,13 @@
+Convierte la siguiente premisa en un ARTÍCULO para el canal/blog: $canal.
+Respondé únicamente con un objeto JSON válido, sin texto adicional ni markdown.
+
+Premisa: $premisa
+Tono: $tono
+
+Estructura esperada del artículo:
+- Título llamativo.
+- Introducción, desarrollo con subtítulos y conclusión.
+- Extensión aproximada de 600 a 900 palabras.
+
+Formato JSON de salida:
+{"formato": "articulo", "titulo": "título del artículo", "contenido": "Introducción...\n\n## Subtítulo...\n\nConclusión..."}

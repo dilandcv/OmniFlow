@@ -1,0 +1,16 @@
+Convierte la siguiente premisa en un HILO para la red social/canal: $canal.
+Respondé únicamente con un objeto JSON válido, sin texto adicional ni markdown.
+
+Premisa: $premisa
+Tono: $tono
+
+Estructura esperada del hilo:
+- Un gancho inicial que enganche en los primeros caracteres.
+- Desarrollo con ideas claras y bien separadas.
+- Cierre con llamada a la acción.
+
+Cada tweet debe tener como máximo 280 caracteres. Separá los tweets con una
+línea exactamente igual a "---".
+
+Formato JSON de salida:
+{"formato": "hilo", "titulo": "título breve y atractivo", "contenido": "tweet 1\n---\ntweet 2\n---\ntweet 3"}

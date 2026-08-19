@@ -1,0 +1,1 @@
+"""Esquemas Pydantic de entrada/salida (request/response), separados de los modelos SQLModel."""

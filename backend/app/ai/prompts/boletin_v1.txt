@@ -1,0 +1,13 @@
+Convierte la siguiente premisa en un BOLETÍN (newsletter) para el canal: $canal.
+Respondé únicamente con un objeto JSON válido, sin texto adicional ni markdown.
+
+Premisa: $premisa
+Tono: $tono
+
+Estructura esperada del boletín:
+- Asunto (subject) atractivo.
+- Saludo, contenido principal y cierre con llamado a la acción.
+- Extensión breve: de 300 a 500 palabras.
+
+Formato JSON de salida:
+{"formato": "boletin", "titulo": "asunto del boletín", "contenido": "Saludo...\n\nContenido principal...\n\nDespedida y CTA..."}
