@@ -3,6 +3,7 @@ import { Layout } from './components/Layout'
 import { NuevaIdea } from './pages/NuevaIdea'
 import { Variantes } from './pages/Variantes'
 import { Programacion } from './pages/Programacion'
+import { AiConfig } from './pages/AiConfig'
 
 function Pantalla() {
   const { vista } = useApp()
@@ -11,6 +12,8 @@ function Pantalla() {
       return <Variantes />
     case 'programacion':
       return <Programacion />
+    case 'ai':
+      return <AiConfig />
     default:
       return <NuevaIdea />
   }

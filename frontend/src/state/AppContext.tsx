@@ -12,7 +12,7 @@ import {
 } from 'react'
 import type { Idea } from '../api/types'
 
-export type Vista = 'idea' | 'variantes' | 'programacion'
+export type Vista = 'idea' | 'variantes' | 'programacion' | 'ai'
 
 interface AppContextValue {
   vista: Vista

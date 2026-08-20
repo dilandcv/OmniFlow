@@ -1,6 +1,4 @@
-// Vista "Programación": lista las variantes aprobadas para elegir fecha/hora y
-// programarlas, y muestra una lista simple de lo ya programado con su estado
-// (pendiente/programado → publicado).
+// Vista "Programación": editorial calendar con estilo comic
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, ApiError, type ContentVariant, type ScheduledPost } from '../api'
 import { useApp } from '../state/AppContext'
@@ -8,6 +6,7 @@ import { Loading } from '../components/Loading'
 import { ErrorAlert } from '../components/ErrorAlert'
 import { EstadoBadge } from '../components/EstadoBadge'
 import { formatFecha, fromDateTimeLocal, minutoLocal } from '../lib/datetime'
+import { IconCalendar } from '../components/graphics/OmniIcons'
 
 function porDefecto(hora: Date): string {
   return minutoLocal(new Date(hora.getTime() + 60 * 60 * 1000))
@@ -105,7 +104,6 @@ export function Programacion() {
   }
 
   const grupos = useMemo(() => {
-    // Lista simple agrupada por día de publicación.
     const mapa = new Map<string, ScheduledPost[]>()
     for (const p of programaciones) {
       const dia = (p.programado_para ?? '').slice(0, 10)
@@ -117,56 +115,81 @@ export function Programacion() {
   }, [programaciones])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Programación</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Programá variantes aprobadas y seguí el estado de publicación.
-        </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <header className="bg-[#111111] text-white border-[3px] border-black shadow-[6px_6px_0_#111] relative overflow-hidden">
+        <div className="absolute inset-0 halftone-white opacity-[0.05] pointer-events-none" />
+        <div className="absolute top-0 left-0 w-full h-1 bg-[#E10600]" />
+        <div className="relative p-5 lg:p-6 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="bg-[#E10600] text-white px-2 py-1 text-[10px] font-black tracking-[0.2em] font-mono-omni flex items-center gap-1.5"><IconCalendar size={12} /> SCHEDULE</span>
+              <span className="text-[10px] font-mono-omni tracking-[0.18em] text-white/50">CALENDAR • EDITORIAL GRID</span>
+            </div>
+            <h1 className="font-display text-4xl leading-none">
+              PROGRAMA<span className="text-[#E10600]">CIÓN</span>
+            </h1>
+            <p className="mt-2 text-sm text-white/60 max-w-xl border-l-2 border-[#E10600] pl-3">Programá variantes aprobadas y seguí el estado de publicación. Todo lo programado aparece en la agenda.</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <div className="bg-white text-black border-2 border-white px-4 py-2 text-center">
+              <p className="font-display text-2xl leading-none">{aprobadas.length}</p>
+              <p className="text-[8px] font-mono-omni tracking-widest">READY TO SHIP</p>
+            </div>
+            <div className="bg-[#E10600] text-white border-2 border-[#E10600] px-4 py-2 text-center">
+              <p className="font-display text-2xl leading-none">{programaciones.length}</p>
+              <p className="text-[8px] font-mono-omni tracking-widest">SCHEDULED</p>
+            </div>
+          </div>
+        </div>
+        <div className="h-2 bg-[#E10600] relative overflow-hidden"><div className="absolute inset-0 halftone-black opacity-15" /></div>
       </header>
 
       {accionError && <ErrorAlert mensaje={accionError} />}
       {error && <ErrorAlert mensaje={error} onReintentar={cargar} />}
 
-      {/* Variantes aprobadas listas para programar */}
-      <section>
-        <h2 className="mb-3 text-base font-semibold text-slate-800">Variantes aprobadas</h2>
+      {/* Variantes aprobadas */}
+      <section className="bg-white border-[3px] border-black shadow-[6px_6px_0_#111] overflow-hidden">
+        <div className="bg-black text-white px-4 py-2 flex items-center gap-3 border-b-[3px] border-black">
+          <span className="size-7 bg-[#E10600] text-white flex items-center justify-center font-black text-xs border border-white">✓</span>
+          <h2 className="font-condensed font-black tracking-[0.14em] text-sm">VARIANTES APROBADAS — READY TO SCHEDULE</h2>
+          <span className="ml-auto hidden sm:inline-flex bg-white text-black px-2 py-1 text-[10px] font-mono-omni font-black">{aprobadas.length} ITEMS</span>
+        </div>
         {aprobadas.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
-            No hay variantes aprobadas. Aprobá variantes desde la vista “Variantes”.
+          <div className="p-8 text-center bg-[#F5F5F5] border-t-2 border-dashed border-black/20">
+            <p className="font-display text-xl">NO APPROVED VARIANTS</p>
+            <p className="text-sm font-mono-omni text-black/50 mt-1">Aprobá variantes desde la vista “Concepts”.</p>
+            <div className="mt-4 h-1 w-20 bg-[#E10600] mx-auto" />
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="p-4 grid md:grid-cols-2 gap-4 bg-[#F5F5F5]">
             {aprobadas.map((v) => {
               const canal = canalDe(v.id)
               return (
-                <div
-                  key={v.id}
-                  className="rounded-xl border border-emerald-200 bg-white p-4 shadow-sm"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                <div key={v.id} className="bg-white border-[3px] border-black p-4 relative shadow-[4px_4px_0_#111] hover:shadow-[6px_6px_0_#111] transition-shadow">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-[#E10600]" />
+                  <div className="flex items-center justify-between gap-2 mb-3">
                     <div>
-                      <p className="text-sm font-semibold">{canal}</p>
-                      <p className="text-xs text-slate-500">
-                        Variante #{v.id} · {v.formato}
-                      </p>
+                      <p className="font-condensed font-black text-xs tracking-[0.1em]">{canal.toUpperCase()}</p>
+                      <p className="text-[10px] font-mono-omni text-black/50">VARIANTE #{v.id} • {v.formato.toUpperCase()}</p>
                     </div>
                     <EstadoBadge estado={v.estado} />
                   </div>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <p className="text-xs leading-relaxed bg-[#F5F5F5] border-2 border-black p-2 line-clamp-2">{v.contenido.slice(0, 120)}…</p>
+                  <div className="mt-3 flex gap-2">
                     <input
                       type="datetime-local"
                       value={fechas[v.id] ?? ''}
                       onChange={(e) => setFechas((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 sm:max-w-xs"
+                      className="flex-1 border-2 border-black px-3 py-2 text-xs font-mono-omni focus:border-[#E10600] focus:outline-none bg-white"
                     />
                     <button
                       type="button"
                       onClick={() => programar(v)}
                       disabled={programandoId === v.id}
-                      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+                      className="bg-[#E10600] text-white border-2 border-black px-4 py-2 text-xs font-black tracking-widest hover:bg-black disabled:opacity-50 shadow-[2px_2px_0_#111]"
                     >
-                      {programandoId === v.id ? 'Programando…' : 'Programar'}
+                      {programandoId === v.id ? '…' : 'PROGRAMAR'}
                     </button>
                   </div>
                 </div>
@@ -176,49 +199,53 @@ export function Programacion() {
         )}
       </section>
 
-      {/* Agenda: lo ya programado */}
-      <section>
-        <h2 className="mb-3 text-base font-semibold text-slate-800">Programadas</h2>
+      {/* Agenda */}
+      <section className="bg-white border-[3px] border-black shadow-[6px_6px_0_#111] overflow-hidden">
+        <div className="bg-[#E10600] text-white px-4 py-2 flex items-center gap-3 border-b-[3px] border-black relative">
+          <div className="absolute inset-0 halftone-black opacity-15 pointer-events-none" />
+          <span className="relative size-7 bg-black text-white flex items-center justify-center font-black text-xs border-2 border-white">◉</span>
+          <h2 className="relative font-condensed font-black tracking-[0.14em] text-sm">AGENDA — PROGRAMADAS</h2>
+          <span className="relative ml-auto bg-black text-white px-2 py-1 text-[10px] font-mono-omni">{grupos.length} DAYS</span>
+        </div>
         {cargando ? (
-          <Loading mensaje="Cargando programaciones…" />
+          <div className="p-6"><Loading mensaje="CARGANDO AGENDA…" /></div>
         ) : grupos.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
-            Aún no hay publicaciones programadas.
+          <div className="p-10 text-center">
+            <p className="font-display text-2xl">NO SCHEDULED POSTS</p>
+            <p className="text-xs font-mono-omni text-black/50 mt-1">Aún no hay publicaciones programadas.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="divide-y-[3px] divide-black">
             {grupos.map(([dia, posts]) => (
-              <div key={dia} className="rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {formatFecha(`${dia}T00:00:00`)}
+              <div key={dia} className="bg-[#F5F5F5]">
+                <div className="bg-black text-white px-4 py-2 flex items-center gap-3">
+                  <span className="bg-[#E10600] text-white px-2 py-1 text-xs font-black tracking-widest border border-white">{dia || 'SIN FECHA'}</span>
+                  <span className="text-xs font-mono-omni tracking-widest text-white/70">{formatFecha(`${dia}T00:00:00`)}</span>
+                  <span className="ml-auto text-[10px] font-mono-omni bg-white text-black px-2 py-0.5 font-black">{posts.length} POSTS</span>
                 </div>
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-black/10 bg-white">
                   {posts.map((p) => (
-                    <li
-                      key={p.id}
-                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">
-                          {String(canalDe(p.variante_id))} · Variante #{p.variante_id}
+                    <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-[#F5F5F5] transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black tracking-wide truncate">
+                          <span className="bg-black text-white px-1.5 py-0.5 text-[10px] mr-2">{String(canalDe(p.variante_id)).toUpperCase()}</span>
+                          VARIANTE #{p.variante_id}
                         </p>
-                        <p className="text-xs text-slate-500">{formatFecha(p.programado_para)}</p>
-                        {p.fecha_publicacion && (
-                          <p className="text-xs text-emerald-700">
-                            Publicada el {formatFecha(p.fecha_publicacion)}
-                          </p>
-                        )}
+                        <p className="text-xs font-mono-omni text-black/60 mt-1 flex items-center gap-2">
+                          <span className="size-1.5 bg-[#E10600] rounded-full" /> {formatFecha(p.programado_para)}
+                          {p.fecha_publicacion && <span className="bg-green-600 text-white px-1.5 py-0.5 text-[9px] font-black">PUBLISHED {formatFecha(p.fecha_publicacion)}</span>}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <EstadoBadge estado={p.estado} />
                         {p.estado !== 'publicado' && (
                           <button
                             type="button"
                             onClick={() => cancelar(p)}
                             disabled={cancelandoId === p.id}
-                            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                            className="border-2 border-black bg-white px-3 py-1 text-xs font-black tracking-widest hover:bg-black hover:text-white disabled:opacity-50"
                           >
-                            {cancelandoId === p.id ? '…' : 'Cancelar'}
+                            {cancelandoId === p.id ? '…' : 'CANCELAR'}
                           </button>
                         )}
                       </div>
